@@ -17,6 +17,7 @@ import { SupportedArea } from '~/concepts/areas';
 import useIsAreaAvailable from '~/concepts/areas/useIsAreaAvailable';
 import ModelRegistrySettingsRoutes from '~/pages/modelRegistrySettings/ModelRegistrySettingsRoutes';
 import ConnectionTypeRoutes from '~/pages/connectionTypes/ConnectionTypeRoutes';
+const AboutPage = React.lazy(() => import('../pages/AboutPage'));
 
 const HomePage = React.lazy(() => import('../pages/home/Home'));
 
@@ -157,6 +158,8 @@ const AppRoutes: React.FC = () => {
           </>
         )}
         <Route path="/hardwareProfiles/*" element={<HardwareProfileRoutes />} />
+
+        <Route path="/about" element={<AboutPage />} />
 
         <Route path="*" element={<NotFound />} />
       </Routes>

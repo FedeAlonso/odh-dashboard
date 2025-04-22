@@ -311,6 +311,7 @@ const useSettingsNav = (): NavDataGroup[] => {
     ...useStorageClassesNav(),
     ...useModelRegisterySettingsNav(),
     ...useUserManagementNav(),
+    { id: 'settings-about', label: 'About', href: '/about' },
   ];
 
   if (settingsNavs.length === 0) {
