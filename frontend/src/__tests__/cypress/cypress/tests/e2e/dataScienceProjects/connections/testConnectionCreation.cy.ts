@@ -103,4 +103,58 @@ describe('Verify Connections - Creation and Deletion', () => {
       connectionsPage.findDataConnectionName().should('not.exist');
     },
   );
+
+  it(
+    'Create, Edit, Delete a Connection and navigate to About page',
+    { tags: ['@Sanity', '@ODS-1826', '@Dashboard'] },
+    () => {
+      cy.step('Log into the application');
+      cy.visitWithLogin('/', HTPASSWD_CLUSTER_ADMIN_USER);
+
+      cy.step(`Navigate to the project ${testData.projectDCResourceName}`);
+      projectListPage.navigate();
+      projectListPage.filterProjectByName(testData.projectDCResourceName);
+      projectListPage.findProjectLink(testData.projectDCResourceName).click();
+
+      cy.step('Navigate to Connections and create a new connection');
+      projectDetails.findSectionTab('connections').click();
+      connectionsPage.findCreateConnectionButton().click();
+
+      cy.step('Enter details for aiAgentConnection');
+      addConnectionModal.findConnectionTypeDropdown().click();
+      addConnectionModal.findS3CompatibleStorageOption().click();
+      addConnectionModal.findConnectionNameInput().clear().type('aiAgentConnection');
+      addConnectionModal.findConnectionDescriptionInput().clear().type('AI Agent Connection');
+      addConnectionModal.findAwsKeyInput().clear().type('initialAccessKey');
+      addConnectionModal.findAwsSecretKeyInput().clear().type('initialSecretKey');
+      addConnectionModal.findEndpointInput().clear().type('http://initial-endpoint.com');
+      addConnectionModal.findRegionInput().clear().type('initial-region');
+      addConnectionModal.findBucketInput().clear().type('initial-bucket');
+      addConnectionModal.findCreateButton().click();
+      connectionsPage.getConnectionRow('aiAgentConnection').should('exist');
+
+      cy.step('Edit the connection aiAgentConnection');
+      connectionsPage.getConnectionRow('aiAgentConnection').findKebabToggle().click();
+      connectionsPage.getConnectionRow('aiAgentConnection').findKebabAction('Edit').click();
+      addConnectionModal.findConnectionDescriptionInput().clear().type('Edited AI Agent Connection');
+      addConnectionModal.findEndpointInput().clear().type('http://edited-endpoint.com');
+      addConnectionModal.findAwsKeyInput().clear().type('editedAccessKey');
+      addConnectionModal.findAwsSecretKeyInput().clear().type('editedSecretKey');
+      addConnectionModal.findCreateButton().click();
+      connectionsPage.getConnectionRow('aiAgentConnection').should('exist');
+
+      cy.step('Delete the connection aiAgentConnection');
+      connectionsPage.getConnectionRow('aiAgentConnection').findKebabToggle().click();
+      connectionsPage.getConnectionRow('aiAgentConnection').findKebabAction('Delete').click();
+      deleteModal.shouldBeOpen();
+      deleteModal.findInput().clear().type('aiAgentConnection');
+      deleteModal.findSubmitButton().should('be.enabled').click();
+      connectionsPage.findDataConnectionName().contains('aiAgentConnection').should('not.exist');
+
+      cy.step('Navigate to Settings -> About');
+      cy.visit('/about');
+      cy.get('[data-testid="odh-about-dialog"]').should('exist');
+    },
+  );
+
 });
