@@ -105,6 +105,8 @@ export const checkInferenceServiceState = (
       attempts++;
 
       let serviceState: InferenceServiceState;
+      // Log the raw JSON content for debugging
+      cy.log(`Raw JSON content: ${result.stdout}`);
       try {
         serviceState = JSON.parse(result.stdout) as InferenceServiceState;
       } catch (error) {
