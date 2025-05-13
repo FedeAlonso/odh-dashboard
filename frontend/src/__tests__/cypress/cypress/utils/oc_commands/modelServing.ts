@@ -104,9 +104,13 @@ export const checkInferenceServiceState = (
     return cy.exec(ocCommand, { failOnNonZeroExit: false }).then((result) => {
       attempts++;
 
+      // Log the command and complete result for debugging
+      cy.log(`Command executed: ${ocCommand}`);
+      cy.log(`Command exit code: ${result.code}`);
+      cy.log(`Command stdout: ${result.stdout}`);
+      cy.log(`Command stderr: ${result.stderr}`);
+
       let serviceState: InferenceServiceState;
-      // Log the raw JSON content for debugging
-      cy.log(`Raw JSON content: ${result.stdout}`);
       try {
         serviceState = JSON.parse(result.stdout) as InferenceServiceState;
       } catch (error) {
