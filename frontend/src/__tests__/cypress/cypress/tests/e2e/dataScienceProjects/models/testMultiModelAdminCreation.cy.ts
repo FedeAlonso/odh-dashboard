@@ -76,6 +76,7 @@ describe('Verify Admin Multi Model Creation and Validation using the UI', () => 
         '@Dashboard',
         '@Modelserving',
         '@NonConcurrent',
+        '@Logging',
       ],
     },
     () => {
