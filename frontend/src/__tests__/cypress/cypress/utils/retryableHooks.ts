@@ -5,7 +5,6 @@
  *
  * @param {() => void | Promise<void> | Cypress.Chainable<any>} fn - The setup function to execute.
  */
-let setupPerformed = false;
 
 export const retryableBefore = <T>(fn: () => void | Promise<void> | Cypress.Chainable<T>): void => {
   let shouldRun = true;
@@ -13,7 +12,8 @@ export const retryableBefore = <T>(fn: () => void | Promise<void> | Cypress.Chai
   beforeEach(function retryableBeforeEach() {
     if (this.currentTest?.isPending() || !shouldRun) return;
     shouldRun = false;
-    setupPerformed = true;
+    // Set an alias to track setup state for this specific test
+    cy.wrap(true).as('setupPerformed');
     cy.wrap(null).then(fn);
   });
 
@@ -32,7 +32,8 @@ export const retryableBeforeEach = <T>(
   beforeEach(function retryableBeforeEachHook() {
     if (this.currentTest?.isPending() || !shouldRun) return;
     shouldRun = true;
-    setupPerformed = true;
+    // Set an alias to track setup state for this specific test
+    cy.wrap(true).as('setupPerformed');
     cy.wrap(null).then(fn);
   });
 
@@ -43,4 +44,6 @@ export const retryableBeforeEach = <T>(
   });
 };
 
-export const wasSetupPerformed = (): boolean => setupPerformed;
+export const wasSetupPerformed = (): Cypress.Chainable<boolean> => {
+  return cy.get('@setupPerformed').then((val) => Boolean(val));
+};
