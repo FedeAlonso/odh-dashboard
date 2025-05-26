@@ -58,11 +58,30 @@ describe('Verify Admin Multi Model Creation and Validation using the UI', () => 
     );
   });
   after(() => {
-    //Check if the Before Method was executed to perform the setup
-    if (!wasSetupPerformed()) return;
+    // Enhanced debugging logs
+    cy.log('=== Project Deletion Debug Info ===');
+    cy.log(`Test Environment: ${Cypress.env('CI') ? 'Jenkins' : 'Local'}`);
+    cy.log(`projectName: ${projectName}`);
+    cy.log(`Current URL: ${Cypress.config('baseUrl')}`);
 
-    // Delete provisioned Project - 5 min timeout to accomadate increased time to delete a project with a model
-    deleteOpenShiftProject(projectName, { timeout: 300000 });
+    // Check if the Before Method was executed to perform the setup
+    wasSetupPerformed().then((setupDone) => {
+      cy.log(`wasSetupPerformed: ${setupDone}`);
+      
+      if (!setupDone) {
+        cy.log('❌ Skipping project deletion because setup was not performed.');
+        cy.log('This could be due to:');
+        cy.log('1. Test isolation in Jenkins');
+        cy.log('2. Setup hook failure');
+        cy.log('3. Test retry in Jenkins');
+        return;
+      }
+
+      // Delete provisioned Project - 5 min timeout to accommodate increased time to delete a project with a model
+      cy.log(`🔄 Attempting to delete project: ${projectName} with extended timeout.`);
+      deleteOpenShiftProject(projectName, { timeout: 300000 });
+      cy.log('✅ Project deletion command executed');
+    });
   });
 
   it(
