@@ -54,15 +54,18 @@ describe('Verify Admin Multi Model Creation and Validation using the UI', () => 
           awsBucket,
           'resources/yaml/data_connection_model_serving.yaml',
         );
+        // Set alias to indicate setup was performed (for test isolation compatibility)
+        cy.wrap(true).as('setupPerformed');
       },
     );
   });
-  after(() => {
-    //Check if the Before Method was executed to perform the setup
-    if (!wasSetupPerformed()) return;
-
-    // Delete provisioned Project - 5 min timeout to accomadate increased time to delete a project with a model
-    deleteOpenShiftProject(projectName, { timeout: 300000 });
+  after(function () {
+    // Use Cypress alias to check if setup was performed
+    cy.get('@setupPerformed').then((setupPerformed) => {
+      if (!setupPerformed) return;
+      // Delete provisioned Project - 5 min timeout to accommodate increased time to delete a project with a model
+      deleteOpenShiftProject(projectName, { timeout: 300000 });
+    });
   });
 
   it(
