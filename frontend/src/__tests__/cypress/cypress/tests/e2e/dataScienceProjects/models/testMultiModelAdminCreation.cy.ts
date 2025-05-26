@@ -58,10 +58,19 @@ describe('Verify Admin Multi Model Creation and Validation using the UI', () => 
     );
   });
   after(() => {
-    //Check if the Before Method was executed to perform the setup
-    if (!wasSetupPerformed()) return;
+    // Log the value of wasSetupPerformed for debugging
+    cy.log(`wasSetupPerformed: ${wasSetupPerformed()}`);
+    // Optionally, print the projectName as well
+    cy.log(`projectName: ${projectName}`);
 
-    // Delete provisioned Project - 5 min timeout to accomadate increased time to delete a project with a model
+    // Check if the Before Method was executed to perform the setup
+    if (!wasSetupPerformed()) {
+      cy.log('Skipping project deletion because setup was not performed.');
+      return;
+    }
+
+    // Delete provisioned Project - 5 min timeout to accommodate increased time to delete a project with a model
+    cy.log(`Deleting project: ${projectName} with extended timeout.`);
     deleteOpenShiftProject(projectName, { timeout: 300000 });
   });
 
