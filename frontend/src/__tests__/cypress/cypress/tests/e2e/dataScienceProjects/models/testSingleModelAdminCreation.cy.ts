@@ -53,10 +53,10 @@ describe('Verify Admin Single Model Creation and Validation using the UI', () =>
       },
     );
   });
-  after(() => {
-    // Delete provisioned Project
-    deleteOpenShiftProject(projectName, { wait: false, ignoreNotFound: true });
-  });
+  // after(() => {
+  //   // Delete provisioned Project
+  //   deleteOpenShiftProject(projectName, { wait: false, ignoreNotFound: true });
+  // });
 
   it(
     'Verify that an Admin can Serve, Query a Single Model using both the UI and External links',

@@ -58,10 +58,10 @@ describe('Verify Model Creation and Validation using the UI', () => {
       },
     );
   });
-  after(() => {
-    // Delete provisioned Project
-    deleteOpenShiftProject(projectName, { wait: false, ignoreNotFound: true });
-  });
+  // after(() => {
+  //   // Delete provisioned Project
+  //   deleteOpenShiftProject(projectName, { wait: false, ignoreNotFound: true });
+  // });
 
   it(
     'Verify that a Non Admin can Serve and Query a Model using the UI',
