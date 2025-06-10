@@ -96,14 +96,14 @@ export default defineConfig({
         validateHttpsUrls(urls: string[]) {
           return validateHttpsUrls(urls);
         },
-        log(message) {
-          return logToConsole(LogLevel.INFO, message);
+        log({ message, testFile }: { message: string; testFile?: string }) {
+          return logToConsole(LogLevel.INFO, message, testFile);
         },
-        error(message) {
-          return logToConsole(LogLevel.ERROR, message);
+        error({ message, testFile }: { message: string; testFile?: string }) {
+          return logToConsole(LogLevel.ERROR, message, testFile);
         },
-        table(message) {
-          return logToConsole(LogLevel.TABLE, message);
+        table({ message, testFile }: { message: string; testFile?: string }) {
+          return logToConsole(LogLevel.TABLE, message, testFile);
         },
       });
 

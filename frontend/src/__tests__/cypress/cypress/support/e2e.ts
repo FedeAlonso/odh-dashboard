@@ -212,17 +212,18 @@ Cypress.on('command:end', function handleCommandEnd() {
 });
 
 Cypress.on('command:enqueued', (command) => {
+  const testFile = Cypress.spec.name;
   if (command.name === 'step') {
     if (commandStack.length === 0) {
       stepCounter++;
-      cy.task('log', `[STEP ${stepCounter}] ${command.args[0]}`);
+      cy.task('log', { message: `[STEP ${stepCounter}] ${command.args[0]}`, testFile });
     } else {
-      cy.task('log', `${command.args[0]}`);
+      cy.task('log', { message: `${command.args[0]}`, testFile });
     }
   } else if (command.name === 'exec') {
-    cy.task('log', `[EXEC] ${command.args[0]}`);
+    cy.task('log', { message: `[EXEC] ${command.args[0]}`, testFile });
   } else if (command.name === 'log') {
-    cy.task('log', `${command.args[0]}`);
+    cy.task('log', { message: `${command.args[0]}`, testFile });
   }
 });
 
@@ -260,15 +261,16 @@ beforeEach(function beforeEachHook(this: Mocha.Context) {
     return;
   }
 
+  const testFile = Cypress.spec.name;
+  const testTitle = this.currentTest.title;
+  const currentSuite = this.currentTest.parent;
+  const suiteTitle = currentSuite?.title;
+
   if (timeoutSeconds) {
     this._testTimeoutTimer = setTimeout(() => {
       throw new Error(`Test exceeded ${timeoutSeconds}s`);
     }, Number(timeoutSeconds) * 1000);
   }
-
-  const testTitle = this.currentTest.title;
-  const currentSuite = this.currentTest.parent;
-  const suiteTitle = currentSuite?.title;
 
   // If the entire suite is marked as skipped, skip this test immediately
   if (suiteTitle && Cypress.skippedSuites.has(suiteTitle)) {
@@ -279,17 +281,21 @@ beforeEach(function beforeEachHook(this: Mocha.Context) {
   const mappedTestTags = mapTestTags(testTags);
 
   // Chain Cypress commands
-  cy.task('log', `Test title: ${testTitle}`)
+  cy.task('log', { message: `Test title: ${testTitle}`, testFile })
     .then(() =>
       mappedTestTags.length > 0
-        ? cy.task('log', `Test tags: ${JSON.stringify(mappedTestTags)}`)
+        ? cy.task('log', { message: `Test tags: ${JSON.stringify(mappedTestTags)}`, testFile })
         : undefined,
     )
     .then(() =>
-      skipTags.length > 0 ? cy.task('log', `Skip tags: ${JSON.stringify(skipTags)}`) : undefined,
+      skipTags.length > 0
+        ? cy.task('log', { message: `Skip tags: ${JSON.stringify(skipTags)}`, testFile })
+        : undefined,
     )
     .then(() =>
-      grepTags.length > 0 ? cy.task('log', `Grep tags: ${JSON.stringify(grepTags)}`) : undefined,
+      grepTags.length > 0
+        ? cy.task('log', { message: `Grep tags: ${JSON.stringify(grepTags)}`, testFile })
+        : undefined,
     )
     .then(() => {
       // Determine if the test should be skipped
@@ -302,7 +308,10 @@ beforeEach(function beforeEachHook(this: Mocha.Context) {
           const suiteStats = Cypress.suiteTestCount[suiteTitle];
           if (suiteStats.skipped === suiteStats.total && suiteStats.total > 0) {
             Cypress.skippedSuites.add(suiteTitle);
-            cy.log(`All tests in suite "${suiteTitle}" are now skipped. Hooks will be skipped.`);
+            cy.log(
+              `All tests in suite "${suiteTitle}" are now skipped. Hooks will be skipped.`,
+              testFile,
+            );
           }
         }
         this.skip();
@@ -346,6 +355,9 @@ after(() => {
   if (Cypress.testsExecuted) {
     softAssert.softAssertAll();
   } else {
-    cy.task('log', 'No tests were executed. Skipping soft assertions.');
+    cy.task('log', {
+      message: 'No tests were executed. Skipping soft assertions.',
+      testFile: Cypress.spec.name,
+    });
   }
 });
