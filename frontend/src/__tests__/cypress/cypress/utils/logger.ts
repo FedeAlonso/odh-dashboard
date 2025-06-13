@@ -13,7 +13,7 @@ export const LogLevel = {
 type LogLevelType = (typeof LogLevel)[keyof typeof LogLevel];
 
 // Create logs directory at project root
-const LOGS_DIR = path.join(process.cwd(), 'logs', 'e2e');
+const LOGS_DIR = path.join(process.cwd(), 'results', 'logs', 'e2e');
 
 // Debug: Log the current working directory and logs directory
 // eslint-disable-next-line no-console
