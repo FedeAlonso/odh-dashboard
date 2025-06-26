@@ -64,7 +64,7 @@ describe('Verify Model Creation and Validation using the UI', () => {
   });
 
   it(
-    '[Product Bug: RHOAIENG-28128] Verify that a Non Admin can Serve and Query a Model using the UI',
+    'Verify that a Non Admin can Serve and Query a Model using the UI',
     {
       tags: [
         '@Smoke',
@@ -73,7 +73,6 @@ describe('Verify Model Creation and Validation using the UI', () => {
         '@Dashboard',
         '@Modelserving',
         '@NonConcurrent',
-        '@Bug',
       ],
     },
     () => {
