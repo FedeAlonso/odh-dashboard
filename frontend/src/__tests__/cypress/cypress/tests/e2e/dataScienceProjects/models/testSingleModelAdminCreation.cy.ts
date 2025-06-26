@@ -68,7 +68,6 @@ describe('Verify Admin Single Model Creation and Validation using the UI', () =>
         '@Dashboard',
         '@Modelserving',
         '@NonConcurrent',
-        '@Bug',
       ],
     },
     () => {

@@ -73,7 +73,6 @@ describe('Verify Model Creation and Validation using the UI', () => {
         '@Dashboard',
         '@Modelserving',
         '@NonConcurrent',
-        '@Bug',
       ],
     },
     () => {
