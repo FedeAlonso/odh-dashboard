@@ -1,0 +1,7 @@
+# testModelServingMetricsDashboard.cy.ts - Deploy mnist-8.onnx and verify metrics dashboard
+projectSingleModelAdminDisplayName: "Cypress Metrics Dashboard Test Project"
+projectSingleModelAdminResourceName: "cy-metrics-dashboard-test"
+singleModelAdminName: "cy-mnist-model"
+modelOpenVinoPath: "mnist-8/mnist-8.onnx"
+modelFormat: 'onnx - 1'
+servingRuntime: 'OpenVINO Model Server'
