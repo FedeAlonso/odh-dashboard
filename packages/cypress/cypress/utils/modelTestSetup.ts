@@ -12,10 +12,10 @@ const checkResourceExists = (
   namespace: string,
 ): Cypress.Chainable<boolean> =>
   execWithOutput(`oc get ${resourceType} ${resourceName} -n ${namespace} --no-headers`, 30).then(
-    ({ exitCode, stdout }) => {
-      const exists = exitCode === 0 && stdout.trim() !== '';
+    ({ code, stdout }) => {
+      const exists = code === 0 && stdout.trim() !== '';
       cy.log(
-        `Resource ${resourceType}/${resourceName} exists check: code=${exitCode}, stdout='${stdout.trim()}', exists=${exists}`,
+        `Resource ${resourceType}/${resourceName} exists check: code=${code}, stdout='${stdout.trim()}', exists=${exists}`,
       );
       return cy.wrap(exists);
     },
@@ -32,8 +32,8 @@ const checkInferenceServiceExists = (
 
 const checkServingRuntimeExists = (namespace: string): Cypress.Chainable<boolean> =>
   execWithOutput(`oc get servingruntime -n ${namespace} --no-headers | wc -l`, 30).then(
-    ({ exitCode, stdout }) => {
-      const exists = exitCode === 0 && parseInt(stdout.trim()) > 0;
+    ({ code, stdout }) => {
+      const exists = code === 0 && parseInt(stdout.trim()) > 0;
       cy.log(`ServingRuntime exists check result: ${exists} (count: ${stdout.trim()})`);
       return cy.wrap(exists);
     },
@@ -116,7 +116,7 @@ const deployStorageIfNeeded = (
             execWithOutput(
               `oc get deployment/${modelTestConfig.storageDeploymentName} -n ${testProjectName}`,
               30, // 30s timeout for status check
-            ).then(({ exitCode: storageExitCode }) => {
+            ).then(({ code: storageExitCode }) => {
               expect(storageExitCode).to.equal(0);
             }),
           );
@@ -141,7 +141,7 @@ const deployServingRuntimeIfNeeded = (
     }
     cy.log('Applying ServingRuntime');
     return applyOpenShiftYaml(servingRuntimeYaml, testProjectName).then(
-      ({ exitCode: servingRuntimeExitCode }) => {
+      ({ code: servingRuntimeExitCode }) => {
         // Don't fail if ServingRuntime apply fails - namespace might not be ready yet
         if (servingRuntimeExitCode !== 0) {
           cy.log(
@@ -165,7 +165,7 @@ const deployInferenceServiceIfNeeded = (
     }
     cy.log(`Deploying Model '${modelName}' in project '${testProjectName}'`);
     return applyOpenShiftYaml(inferenceServiceYaml, testProjectName).then(
-      ({ exitCode: inferenceServiceExitCode }) => {
+      ({ code: inferenceServiceExitCode }) => {
         // Don't fail if InferenceService apply fails - namespace might not be ready yet
         if (inferenceServiceExitCode !== 0) {
           cy.log(
@@ -191,7 +191,7 @@ const waitForModelReady = (
   oc describe inferenceservice/${modelName} -n ${testProjectName};
   exit $RC`,
     timeoutSeconds + 3,
-  ).then(({ exitCode: waitExitCode }) => {
+  ).then(({ code: waitExitCode }) => {
     // Don't fail if InferenceService wait fails - namespace might not be ready yet
     if (waitExitCode !== 0) {
       cy.log(
@@ -243,8 +243,8 @@ export const createModelTestSetup = (modelTestConfig: ModelTestConfig): ModelTes
     cy.log(`Using timeout: ${timeoutSeconds}`);
 
     // Check if namespace already exists
-    execWithOutput(`oc get namespace ${testProjectName} --no-headers`).then(({ exitCode }) => {
-      if (exitCode === 0) {
+    execWithOutput(`oc get namespace ${testProjectName} --no-headers`).then(({ code }) => {
+      if (code === 0) {
         cy.log(`Namespace ${testProjectName} already exists, skipping project creation`);
       } else {
         cy.log(`Creating new project: ${testProjectName}`);

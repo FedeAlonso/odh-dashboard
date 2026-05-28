@@ -42,7 +42,7 @@ export const getImageStreamDisplayName = (
   cy
     .exec(`oc get imagestream ${imageStreamName} -n ${namespace} -o json`)
     .then((result: CommandLineResult) => {
-      if (result.exitCode !== 0) {
+      if (result.code !== 0) {
         const maskedStderr = maskSensitiveInfo(result.stderr);
         throw new Error(`Failed to get image stream: ${maskedStderr}`);
       }
@@ -80,7 +80,7 @@ export const getAvailableNotebookImageStreams = (
   cy
     .exec(`oc get imagestream -n ${namespace} -o jsonpath='{.items[*].metadata.name}'`)
     .then((result: CommandLineResult) => {
-      if (result.exitCode !== 0) {
+      if (result.code !== 0) {
         const maskedStderr = maskSensitiveInfo(result.stderr);
         throw new Error(`Failed to get image streams: ${maskedStderr}`);
       }
@@ -144,7 +144,7 @@ export const getImageStreamTags = (
   cy
     .exec(`oc get imagestream ${imageStreamName} -n ${namespace} -o json`)
     .then((result: CommandLineResult) => {
-      if (result.exitCode !== 0) {
+      if (result.code !== 0) {
         const maskedStderr = maskSensitiveInfo(result.stderr);
         throw new Error(`Failed to get image stream: ${maskedStderr}`);
       }
@@ -157,7 +157,7 @@ export const getNotebookImageNames = (namespace: string): Cypress.Chainable<Note
   cy
     .exec(`oc get imagestream -n ${namespace} -o jsonpath='{.items[*].metadata.name}'`)
     .then((result: CommandLineResult) => {
-      if (result.exitCode !== 0) {
+      if (result.code !== 0) {
         const maskedStderr = maskSensitiveInfo(result.stderr);
         throw new Error(`Failed to get image streams: ${maskedStderr}`);
       }
@@ -169,7 +169,7 @@ export const getNotebookImageNames = (namespace: string): Cypress.Chainable<Note
         cy.exec(
           `oc get imagestream ${imageName} -n ${namespace} -o jsonpath='{.spec.tags[*].name}'`,
         ).then((tagResult: CommandLineResult) => {
-          if (tagResult.exitCode !== 0) {
+          if (tagResult.code !== 0) {
             const maskedStderr = maskSensitiveInfo(tagResult.stderr);
             throw new Error(`Failed to get image stream tags: ${maskedStderr}`);
           }

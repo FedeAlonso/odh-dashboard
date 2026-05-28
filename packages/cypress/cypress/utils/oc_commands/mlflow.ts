@@ -35,7 +35,7 @@ export const doesMlflowCRExist = (): Cypress.Chainable<boolean> =>
       { failOnNonZeroExit: false },
     )
     .then((result) => {
-      if (result.exitCode !== 0 && !result.stderr.includes('No resources found')) {
+      if (result.code !== 0 && !result.stderr.includes('No resources found')) {
         throw new Error(`Failed to check MLflow CR: ${maskSensitiveInfo(result.stderr)}`);
       }
       return result.stdout.trim().length > 0;
@@ -64,7 +64,7 @@ const ensureMlflowCR = (namespace: string): Cypress.Chainable<CommandLineResult>
         failOnNonZeroExit: false,
       })
       .then((applyResult) => {
-        if (applyResult.exitCode !== 0) {
+        if (applyResult.code !== 0) {
           const maskedStderr = maskSensitiveInfo(applyResult.stderr);
           throw new Error(`Failed to create MLflow CR: ${maskedStderr}`);
         }
@@ -105,7 +105,7 @@ export const deleteMlflowCR = (namespace: string): Cypress.Chainable<CommandLine
       failOnNonZeroExit: false,
     })
     .then((result) => {
-      if (result.exitCode !== 0) {
+      if (result.code !== 0) {
         const maskedStderr = maskSensitiveInfo(result.stderr);
         cy.log(`Warning: Failed to delete MLflow CR: ${maskedStderr}`);
       }

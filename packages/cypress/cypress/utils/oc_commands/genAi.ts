@@ -42,7 +42,7 @@ export const deployGenAiModel = (projectName: string, testData: GenAiTestData): 
       const tmpFile = `/tmp/genai-sr-${Date.now()}.yaml`;
       cy.writeFile(tmpFile, srYaml);
       cy.exec(`oc apply -n ${projectName} -f ${tmpFile}`).then((result) => {
-        if (result.exitCode !== 0) {
+        if (result.code !== 0) {
           throw new Error(`ServingRuntime apply failed: ${result.stderr}`);
         }
       });
@@ -59,7 +59,7 @@ export const deployGenAiModel = (projectName: string, testData: GenAiTestData): 
       const isvcTmpFile = `/tmp/genai-isvc-${Date.now()}.yaml`;
       cy.writeFile(isvcTmpFile, isvcYaml);
       cy.exec(`oc apply -n ${projectName} -f ${isvcTmpFile}`).then((result) => {
-        if (result.exitCode !== 0) {
+        if (result.code !== 0) {
           throw new Error(`InferenceService apply failed: ${result.stderr}`);
         }
       });

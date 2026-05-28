@@ -14,7 +14,7 @@ export function filterHiddenApps(
       failOnNonZeroExit: false,
     })
     .then((result) => {
-      if (result.exitCode !== 0 || !result.stdout.trim()) {
+      if (result.code !== 0 || !result.stdout.trim()) {
         cy.log(`Failed to query OdhApplication CRs: ${result.stderr}`);
         return cy.wrap(apps);
       }

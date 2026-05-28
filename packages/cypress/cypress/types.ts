@@ -228,7 +228,7 @@ export type StandaloneNotebookTestData = {
 };
 
 export type CommandLineResult = {
-  exitCode: number;
+  code: number;
   stdout: string;
   stderr: string;
 };

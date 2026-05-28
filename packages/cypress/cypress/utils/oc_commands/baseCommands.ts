@@ -20,7 +20,7 @@ export const ensureAdminOcSession = (): void => {
   // context and invalidates the existing session.
   cy.exec('oc whoami', { failOnNonZeroExit: false, log: false }).then(
     (whoami: CommandLineResult) => {
-      if (whoami.exitCode === 0 && whoami.stdout.trim() === admin.USERNAME) {
+      if (whoami.code === 0 && whoami.stdout.trim() === admin.USERNAME) {
         return;
       }
 
@@ -28,7 +28,7 @@ export const ensureAdminOcSession = (): void => {
         `oc login -u "${admin.USERNAME}" -p "${admin.PASSWORD}" --server="${ocServer}" --insecure-skip-tls-verify`,
         { failOnNonZeroExit: false, log: false },
       ).then((result: CommandLineResult) => {
-        if (result.exitCode !== 0) {
+        if (result.code !== 0) {
           const maskedStderr = maskSensitiveInfo(result.stderr || result.stdout);
           cy.log(`⚠️ oc login as admin failed: ${maskedStderr}`);
         }
@@ -38,10 +38,10 @@ export const ensureAdminOcSession = (): void => {
 };
 
 /**
- * Run a command and return the result exitCode and output (including stderr).
+ * Run a command and return the result code and output (including stderr).
  * @param command The command to run.
  * @param timeout Timeout in seconds for the command execution (default: 60).
- * @returns A Cypress chainable that resolves to an object with `exitCode`, `stdout`, and `stderr`.
+ * @returns A Cypress chainable that resolves to an object with `code`, `stdout`, and `stderr`.
  */
 export const execWithOutput = (
   command: string,
@@ -55,9 +55,9 @@ export const execWithOutput = (
     .then((result: CommandLineResult | null) => {
       if (!result) {
         // Provide a default CommandLineResult shape using cy.wrap
-        return cy.wrap({ exitCode: 0, stdout: '', stderr: '' });
+        return cy.wrap({ code: 0, stdout: '', stderr: '' });
       }
-      cy.log(`Command exit code: ${result.exitCode}`);
+      cy.log(`Command exit code: ${result.code}`);
       return cy.wrap(result);
     });
 };
@@ -111,12 +111,12 @@ export const patchOpenShiftResource = (
   cy.log(ocCommand);
 
   return cy.exec(ocCommand, { failOnNonZeroExit: false }).then((result: CommandLineResult) => {
-    if (result.exitCode !== 0) {
+    if (result.code !== 0) {
       // If there is an error, log the error and fail the test
       cy.log(`ERROR patching ${resourceType} ${resourceName}
               stdout: ${result.stdout}
               stderr: ${result.stderr}`);
-      throw new Error(`Command failed with code ${result.exitCode}`);
+      throw new Error(`Command failed with code ${result.code}`);
     }
     return result;
   });
@@ -181,7 +181,7 @@ export const waitForPodReady = (
 
         cy.exec(waitForPodCommand, { failOnNonZeroExit: false, timeout: 300000 }).then(
           (waitResult: CommandLineResult) => {
-            if (waitResult.exitCode !== 0) {
+            if (waitResult.code !== 0) {
               cy.log(`Pod readiness check failed: ${waitResult.stderr}`);
             } else {
               cy.log(`Pod is ready: ${waitResult.stdout}`);
@@ -253,7 +253,7 @@ export const waitForPodCompletion = (
 
         cy.exec(waitForPodCommand, { failOnNonZeroExit: false, timeout: 300000 }).then(
           (waitResult: CommandLineResult) => {
-            if (waitResult.exitCode !== 0) {
+            if (waitResult.code !== 0) {
               cy.log(`Pod completion check failed: ${waitResult.stderr}`);
               // Check if pod failed instead of succeeded
               const checkFailedCommand = `oc get pod/${podName} -n ${podNamespace} -o jsonpath='{.status.phase}'`;
@@ -285,7 +285,7 @@ export const deleteNotebook = (
   cy.log(`Executing: ${ocCommand}`);
 
   return cy.exec(ocCommand, { failOnNonZeroExit: false }).then((result: CommandLineResult) => {
-    if (result.exitCode !== 0) {
+    if (result.code !== 0) {
       const maskedStderr = maskSensitiveInfo(result.stderr);
       throw new Error(`Command failed with code ${maskedStderr}`);
     }
@@ -323,7 +323,7 @@ export const pollUntilSuccess = (
     return cy.exec(command, { failOnNonZeroExit: false }).then((result) => {
       const elapsedTime = ((Date.now() - startTime) / 1000).toFixed(1);
 
-      if (result.exitCode === 0) {
+      if (result.code === 0) {
         cy.log(`✅ ${description} (found after ${elapsedTime}s)`);
         return cy.wrap(result);
       }

@@ -104,9 +104,9 @@ export const waitForOGXServerReady = (
     return cy.exec(command, { failOnNonZeroExit: false }).then((result: CommandLineResult) => {
       const elapsedTime = ((Date.now() - startTime) / 1000).toFixed(1);
 
-      if (result.exitCode !== 0) {
+      if (result.code !== 0) {
         const maskedStderr = maskSensitiveInfo(result.stderr);
-        throw new Error(`Command failed with exit code ${result.exitCode}: ${maskedStderr}`);
+        throw new Error(`Command failed with exit code ${result.code}: ${maskedStderr}`);
       }
 
       if (!result.stdout.trim()) {
