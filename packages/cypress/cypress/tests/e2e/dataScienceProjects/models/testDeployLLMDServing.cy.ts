@@ -125,7 +125,7 @@ describe('A user can deploy an LLMD model', () => {
       modelServingGlobal.findDeployModelButton().click();
 
       cy.step('Select Model details');
-      modelServingWizard.findModelLocationSelectOption(ModelLocationSelectOption.URI).click();
+      modelServingWizard.selectModelLocationOption(ModelLocationSelectOption.URI);
       modelServingWizard.findUrilocationInput().clear().type(modelURI);
       modelServingWizard.findSaveConnectionCheckbox().should('be.checked');
       modelServingWizard
@@ -135,7 +135,7 @@ describe('A user can deploy an LLMD model', () => {
       modelServingWizard.findYAMLViewerToggle(YAMLViewerToggleOption.YAML).should('exist').click();
       modelServingWizard.findYAMLEditorEmptyState().should('be.visible');
       modelServingWizard.findYAMLViewerToggle(YAMLViewerToggleOption.FORM).should('exist').click();
-      modelServingWizard.findModelTypeSelectOption(ModelTypeLabel.GENERATIVE).click();
+      modelServingWizard.selectModelTypeOption(ModelTypeLabel.GENERATIVE);
 
       modelServingWizard.findNextButton().should('be.enabled').click();
 
@@ -249,6 +249,8 @@ describe('A user can deploy an LLMD model', () => {
       modelServingWizard.findYAMLCodeEditor().waitForReady();
       modelServingWizard.findSubmitButton().should('be.enabled').click();
       const llmdRow = modelServingGlobal.getDeploymentRow(yamlEditorModelName);
+      cy.step('Wait for the deployed model to appear in the deployments table');
+      llmdRow.find().should('exist');
       cy.then(() => {
         checkLLMInferenceServiceState(yamlEditorModelName, projectName, { checkReady: true });
       });

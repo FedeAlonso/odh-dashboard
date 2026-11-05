@@ -156,6 +156,7 @@ type DashboardReconciler struct {
 	Platform              cluster.Platform
 	Namespace             string
 	ApplicationsNamespace string
+	RouteAPIAvailable     bool
 }
 
 // apiReader makes direct-read semantics explicit while retaining a fake-client
@@ -184,6 +185,11 @@ func (r *DashboardReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 
 	if !dashboard.DeletionTimestamp.IsZero() {
 		if controllerutil.ContainsFinalizer(dashboard, dashboardFinalizer) {
+			if dashboard.Spec.LegacyRedirects != nil {
+				if err := r.cleanupLegacyRedirects(ctx); err != nil {
+					return ctrl.Result{}, fmt.Errorf("failed to cleanup legacy dashboard redirects: %w", err)
+				}
+			}
 			cleanup, err := r.deleteMaaSPortalResources(ctx)
 			if err != nil {
 				return ctrl.Result{}, fmt.Errorf("failed to cleanup MaaS Portal resources: %w", err)
@@ -254,7 +260,13 @@ func (r *DashboardReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	cm.ClearCondition(conditionMaaSPortalAvailable)
 
 	if dashboard.Spec.ManagementState == "Removed" {
+		cm.ClearCondition(conditionModelRegistryConfigValid)
 		logger.Info("ManagementState is Removed, tearing down resources")
+		var legacyRedirectErr error
+		if err := r.reconcileLegacyRedirects(ctx, dashboard); err != nil {
+			legacyRedirectErr = fmt.Errorf("failed to clean up legacy dashboard redirects: %w", err)
+			logger.Error(err, "Failed to clean up legacy dashboard redirects; continuing Dashboard teardown")
+		}
 
 		// MaaS and GenAI are shared dependencies. Reconcile their aggregate
 		// demand before the core teardown so MaaS Portal-only operation retains them.
@@ -310,6 +322,14 @@ func (r *DashboardReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 				conditions.WithReason("Removed"),
 				conditions.WithMessage("Dashboard has been removed via managementState"))
 		}
+		if legacyRedirectErr != nil {
+			cm.MarkFalse(string(common.ConditionTypeProvisioningSucceeded),
+				conditions.WithError(legacyRedirectErr),
+				conditions.WithReason("LegacyRedirectCleanupFailed"))
+			cm.MarkTrue(string(common.ConditionTypeDegraded),
+				conditions.WithError(legacyRedirectErr),
+				conditions.WithReason("LegacyRedirectCleanupFailed"))
+		}
 		if cm.IsHappy() {
 			dashboard.Status.Phase = common.PhaseReady
 		} else {
@@ -328,7 +348,7 @@ func (r *DashboardReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 			return ctrl.Result{}, fmt.Errorf("failed to update status after removal: %w", statusErr)
 		}
 
-		return ctrl.Result{RequeueAfter: portalRetryAfter}, nil
+		return ctrl.Result{RequeueAfter: portalRetryAfter}, legacyRedirectErr
 	}
 
 	dashboard.Status.ObservedGeneration = dashboard.Generation
@@ -343,7 +363,22 @@ func (r *DashboardReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	}
 	platformVersion := distributionConfig.PlatformVersion
 
+	legacyRedirectErr := r.reconcileLegacyRedirects(ctx, dashboard)
+	if legacyRedirectErr != nil {
+		logger.Error(legacyRedirectErr, "Failed to reconcile legacy dashboard redirects; continuing Dashboard reconciliation")
+	}
+
 	result, err := r.reconcile(ctx, dashboard, cm, cfg, observabilityDetectionErr == nil)
+	if legacyRedirectErr != nil {
+		legacyRedirectErr = fmt.Errorf("failed to reconcile legacy dashboard redirects: %w", legacyRedirectErr)
+		cm.MarkFalse(string(common.ConditionTypeProvisioningSucceeded),
+			conditions.WithError(legacyRedirectErr),
+			conditions.WithReason("LegacyRedirectReconcileFailed"))
+		cm.MarkTrue(string(common.ConditionTypeDegraded),
+			conditions.WithError(legacyRedirectErr),
+			conditions.WithReason("LegacyRedirectReconcileFailed"))
+		err = errors.Join(err, legacyRedirectErr)
+	}
 
 	releases := []common.ComponentRelease{{
 		Name:    v1alpha1.DashboardComponentName,
@@ -500,8 +535,31 @@ func (r *DashboardReconciler) reconcileDeployment(
 	cm *conditions.Manager,
 	cfg OperatorConfig,
 	observabilityKnown bool,
-) (ctrl.Result, error) {
+) (result ctrl.Result, reconcileErr error) {
 	logger := log.FromContext(ctx)
+	var uploadConfigErr error
+	// Report upload ConfigMap reconciliation failures after reconciling other resources,
+	// while preserving any existing provisioning failure condition.
+	// OCI validation is informational and is recorded independently by the helper.
+	// Log completion only after the final error and requeue result are known.
+	defer func() {
+		if uploadConfigErr != nil {
+			if conditions.IsStatusConditionTrue(dashboard, string(common.ConditionTypeProvisioningSucceeded)) {
+				cm.MarkFalse(string(common.ConditionTypeProvisioningSucceeded),
+					conditions.WithError(uploadConfigErr),
+					conditions.WithReason("ModelRegistryConfigFailed"))
+			}
+			reconcileErr = errors.Join(reconcileErr, uploadConfigErr)
+		}
+		if reconcileErr != nil {
+			return
+		}
+		if result.RequeueAfter > 0 {
+			logger.Info("Dashboard reconcile cycle complete, requeuing", "requeueAfter", result.RequeueAfter)
+		} else {
+			logger.Info("Dashboard reconciled successfully", "url", dashboard.Status.URL, "modules", len(dashboard.Status.ModuleStatuses))
+		}
+	}()
 
 	if err := r.cleanupLegacyResources(ctx); err != nil {
 		cm.MarkFalse(string(common.ConditionTypeProvisioningSucceeded),
@@ -521,6 +579,7 @@ func (r *DashboardReconciler) reconcileDeployment(
 
 	engine := kustomize.NewEngine()
 	var allResources []unstructured.Unstructured
+	var uploadConfigResources []unstructured.Unstructured
 	for _, m := range manifests {
 		rendered, err := engine.Render(m.String(), kustomize.WithNamespace(r.ApplicationsNamespace))
 		if err != nil {
@@ -529,7 +588,13 @@ func (r *DashboardReconciler) reconcileDeployment(
 				conditions.WithError(err))
 			return ctrl.Result{}, fmt.Errorf("failed to render manifests from %s: %w", m, err)
 		}
-		allResources = append(allResources, rendered...)
+		for _, resource := range rendered {
+			if resource.GetKind() == "ConfigMap" && resource.GetName() == modelRegistryConfigMapName {
+				uploadConfigResources = append(uploadConfigResources, resource)
+			} else {
+				allResources = append(allResources, resource)
+			}
+		}
 	}
 
 	remapRayDashboardGatewayRBAC(allResources)
@@ -547,6 +612,13 @@ func (r *DashboardReconciler) reconcileDeployment(
 			conditions.WithReason("StaleContainerRemovalFailed"),
 			conditions.WithError(err))
 		return ctrl.Result{}, fmt.Errorf("failed to remove stale containers: %w", err)
+	}
+
+	if err := revertServicePortDrift(ctx, r.apiReader(), r.Client, allResources); err != nil {
+		cm.MarkFalse(string(common.ConditionTypeProvisioningSucceeded),
+			conditions.WithReason("ServicePortDriftRepairFailed"),
+			conditions.WithError(err))
+		return ctrl.Result{}, fmt.Errorf("failed to repair Service port drift: %w", err)
 	}
 
 	deployer := deploy.NewDeployer(
@@ -567,6 +639,7 @@ func (r *DashboardReconciler) reconcileDeployment(
 			conditions.WithError(err))
 		return ctrl.Result{}, fmt.Errorf("failed to deploy resources: %w", err)
 	}
+	uploadConfigErr = r.reconcileModelRegistryUploadConfig(ctx, dashboard, uploadConfigResources, cm)
 
 	if err := r.reconcileRHOAIDashboardConfigDefaults(ctx); err != nil {
 		cm.MarkFalse(string(common.ConditionTypeProvisioningSucceeded),
@@ -578,8 +651,8 @@ func (r *DashboardReconciler) reconcileDeployment(
 	nextStatuses, err := r.reconcileModuleDemand(ctx, dashboard)
 	if err != nil {
 		cm.MarkFalse(string(common.ConditionTypeProvisioningSucceeded),
-			conditions.WithReason("ModuleDeployFailed"),
-			conditions.WithError(err))
+			conditions.WithError(err),
+			conditions.WithReason("ModuleDeployFailed"))
 		return ctrl.Result{}, fmt.Errorf("failed to deploy module manifests: %w", err)
 	}
 
@@ -610,6 +683,9 @@ func (r *DashboardReconciler) reconcileDeployment(
 	}
 	fedData, err := r.deployFederationConfigMap(ctx, nextStatuses, dashboard, observabilityKnown)
 	if err != nil {
+		cm.MarkFalse(string(common.ConditionTypeProvisioningSucceeded),
+			conditions.WithError(err),
+			conditions.WithReason("FederationConfigMapFailed"))
 		cm.MarkTrue(string(common.ConditionTypeDegraded),
 			conditions.WithReason("FederationConfigMapFailed"),
 			conditions.WithError(err))
@@ -619,12 +695,15 @@ func (r *DashboardReconciler) reconcileDeployment(
 	portalRetryAfter := r.reconcileMaaSPortalOperand(ctx, dashboard, cm, nextStatuses, observabilityKnown)
 
 	if err := r.patchDeploymentFederationHash(ctx, fedData); err != nil {
+		cm.MarkFalse(string(common.ConditionTypeProvisioningSucceeded),
+			conditions.WithError(err),
+			conditions.WithReason("FederationHashPatchFailed"))
 		logger.Error(err, "Failed to patch federation hash on deployment")
 		return ctrl.Result{}, fmt.Errorf("patching federation hash: %w", err)
 	}
 
 	// URL extraction + degraded condition
-	url, requeueAfter, urlErr := r.reconcileURL(ctx, dashboard, cm)
+	_, requeueAfter, urlErr := r.reconcileURL(ctx, dashboard, cm)
 	if urlErr != nil {
 		return ctrl.Result{}, urlErr
 	}
@@ -638,12 +717,6 @@ func (r *DashboardReconciler) reconcileDeployment(
 		cm.MarkTrue(string(common.ConditionTypeDegraded),
 			conditions.WithReason("NamespacedRBACFailed"),
 			conditions.WithError(rbacErr))
-	}
-
-	if requeueAfter > 0 {
-		logger.Info("Dashboard reconcile cycle complete, requeuing", "requeueAfter", requeueAfter)
-	} else {
-		logger.Info("Dashboard reconciled successfully", "url", url, "modules", len(dashboard.Status.ModuleStatuses))
 	}
 
 	if requeueAfter == 0 && cfg.ReconcileInterval > 0 {
@@ -957,6 +1030,32 @@ func (r *DashboardReconciler) cleanupObservabilityResources(ctx context.Context,
 		logger.Info("Deleting cross-namespace networkpolicy", "name", netpols.Items[i].Name, "namespace", obsNS)
 		if err := r.Delete(ctx, &netpols.Items[i]); client.IgnoreNotFound(err) != nil {
 			return fmt.Errorf("deleting networkpolicy %s/%s: %w", obsNS, netpols.Items[i].Name, err)
+		}
+	}
+
+	var roles rbacv1.RoleList
+	if err := r.apiReader().List(ctx, &roles, opts...); err != nil {
+		return fmt.Errorf("listing observability roles: %w", err)
+	}
+	for i := range roles.Items {
+		if !shouldDelete(&roles.Items[i], "Role") {
+			continue
+		}
+		if err := r.Delete(ctx, &roles.Items[i]); client.IgnoreNotFound(err) != nil {
+			return fmt.Errorf("deleting observability Role %s/%s: %w", roles.Items[i].Namespace, roles.Items[i].Name, err)
+		}
+	}
+
+	var bindings rbacv1.RoleBindingList
+	if err := r.apiReader().List(ctx, &bindings, opts...); err != nil {
+		return fmt.Errorf("listing observability rolebindings: %w", err)
+	}
+	for i := range bindings.Items {
+		if !shouldDelete(&bindings.Items[i], "RoleBinding") {
+			continue
+		}
+		if err := r.Delete(ctx, &bindings.Items[i]); client.IgnoreNotFound(err) != nil {
+			return fmt.Errorf("deleting observability RoleBinding %s/%s: %w", bindings.Items[i].Namespace, bindings.Items[i].Name, err)
 		}
 	}
 
